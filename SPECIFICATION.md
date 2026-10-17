@@ -3,174 +3,128 @@
 Protocol: Reticulum Package Protocol
 Acronym: RPP
 Status: Draft
-Version: 0.1
+Version: 0.2-draft
 Transport: Reticulum Network Stack
 
 ## 1. Status of This Document
 
-This document is the normative Draft 0.1 specification for the Reticulum Package Protocol (RPP).
+This is the normative **RPP Draft 0.2**, superseding untagged Draft 0.1. RPP is now an M2 ontology specializing the RDO distributed M3, with an RNS Resource-based binary transfer mechanism. There is no claim of compatibility with a released RPP wire protocol.
 
-The key words **MUST**, **MUST NOT**, **REQUIRED**, **SHALL**, **SHALL NOT**, **SHOULD**, **SHOULD NOT**, **RECOMMENDED**, **NOT RECOMMENDED**, **MAY**, and **OPTIONAL** in this document are to be interpreted as described in RFC 2119 and RFC 8174 when, and only when, they appear in all capitals.
-
-Text marked as **Non-normative** explains intent or gives implementation guidance. It does not add protocol requirements.
-
-**Publication note (non-normative):** Earlier working material used the label “v0.2-draft”. This repository publishes the requested Draft 0.1 specification and does not claim that an earlier working draft was a released protocol version.
+Capitalized MUST, MUST NOT, SHOULD, SHOULD NOT and MAY follow RFC 2119 and RFC 8174. Interoperability requires the final RDO/RPP wire profile and verified test vectors.
 
 ## 2. Purpose and Scope
 
-RPP defines generic package and resource distribution using Reticulum Network Stack primitives.
+RPP defines an M2 package/file ontology using RDO M3 and a transfer profile for exchanging immutable packages, files, manifests and large resources over Reticulum.
 
-RPP is intended for efficient sharing of packages, files, datasets, snapshots, repositories, binaries, and other bulk resources over constrained, intermittent, delayed, or loss-prone Reticulum links.
+RPP ontology instances are independent RDO Objects, Properties and Relationships, with canonical Destination-hash identities and single owners. Its typed operations perform owner-authorized publication, discovery-by-reference, offer, retrieval, integrity verification and receipt handling. Bulk bytes use the existing Reticulum Resource primitive rather than generating an RDO object for every chunk.
 
-RPP defines package identity, manifests, destination-scoped sharing, authorization, integrity, versioned immutable packages, resource planning, resumable transfer, and delivery status.
+RPP remains application-neutral and does not define factual truth, source credibility, or domain-model evidence resolution. An RPP package may contain arbitrary opaque data. The RPP ontology depends on RDO; the RDO core does not depend on RPP.
 
-RPP does not define the meaning of the package contents. A package MAY contain content for any application, but RPP semantics MUST remain application-independent and mission-independent.
-
-RPP is a package and resource protocol. It MUST NOT be used to represent semantic relationships between entities; those semantics belong to a separate protocol such as RDO.
-
-## 3. Design Goals and Non-Goals
+## 3. Goals and Exclusions
 
 ### 3.1 Design goals
 
-RPP has the following goals:
-
-1. Use Reticulum Network Stack primitives directly.
-2. Keep control overhead small through CBOR where this specification defines CBOR structures.
-3. Share packages privately with explicitly selected destinations.
-4. Avoid public package inventories and announce-based package discovery.
-5. Use content-derived identity and end-to-end integrity verification.
-6. Support large packages over constrained Reticulum links.
-7. Support resumable, bounded, and adaptive resource transfer.
-8. Preserve package versioning and provenance without requiring a central server.
-9. Permit disconnected operation, caching, replication, and later retrieval.
-10. Remain independently usable from RDO, LXMF, and application runtimes.
+1. Define reusable package/file types over rdo:Object, rdo:Property and rdo:Relationship.
+2. Use Reticulum Destination hashes as canonical RDO identities for package, manifest and file instances.
+3. Make Property and Relationship instances first-class; do not embed them as authoritative fields of a Package or File.
+4. Preserve content-derived identifiers for immutable bytes and manifests, distinct from RDO Object Destinations.
+5. Transfer large byte streams through RNS Resources, preserving signed manifests, hashes and chunk verification.
+6. Retain private destination-scoped authorization, explicit offers, pull-based transfers, bounded flow control, resumption, and receipts.
+7. Avoid public catalogs, broad announces and dependence on LXMF.
+8. Keep chunks and transient transfer control messages outside the addressable ontology unless independently modeled for an application reason.
 
 ### 3.2 Non-goals
 
-RPP does not define:
-
-- a mission model, operational vocabulary, or application semantics;
-- a distributed object or semantic relationship model;
-- a Git protocol, Git reference negotiation protocol, or Git merge model;
-- a messaging or mailbox protocol;
-- a particular database, filesystem, programming language, or implementation;
-- a required global package catalog;
-- package discovery through public Reticulum announces;
-- a mandatory storage, cache, compression, or scheduling implementation;
-- a requirement that every recipient receive every package resource.
+RPP does not define a general M3 ontology, factual truth resolution, message transport, filesystem layout, source control protocol, globally shared inventory, distributed consensus or a replacement for RNS Resource fragmentation. RPP MUST NOT redefine RDO ownership or addressing rules.
 
 ## 4. Terminology
 
-**Package**: An immutable, identified collection of one or more resources and a signed manifest.
+**RPP M2 ontology:** Domain-specific Classes, Properties and Relationships specialized from RDO M3 and defined in ontology/rpp.ttl.
 
-**Resource**: A transferable logical content unit within a package. A resource MAY be a file, a group of chunks, a manifest, or another declared content unit.
+**Package:** An immutable RDO Object representing a published group of content, with a stable RDO Destination and a separate content-derived package digest.
 
-**Manifest**: The metadata structure that describes a package, its resources, content hashes, version information, authorization-related information, and optional extensions.
+**File:** An RDO Object representing a logical file. Its Destination ID can remain stable when content versions change.
 
-**Chunk**: A content-addressed portion of a resource.
+**Manifest:** An RDO Object representing a published manifest and its integrity declarations; the encoded signed manifest is also a transferable wire artifact.
 
-**Bundle**: A transfer grouping of one or more chunks or resource descriptors selected for one RNS Resource transfer.
+**rpp:Contains / rpp:Supersedes:** Specialized rdo:Relationship types whose instances have their own Destinations and reference source/destination RDO Objects.
 
-**Publisher**: The party that signs or offers a package.
+**rpp:ContentHash / rpp:MediaType / rpp:ByteLength:** Specialized rdo:Property types. Instances reference their source RDO Objects and have separate Destinations.
 
-**Recipient**: A destination explicitly authorized to receive or request a package or resource.
+**RDO ID:** An RPP semantic instance's canonical Reticulum Destination hash; never its file or package digest.
 
-**Offer**: An addressed proposal to make a package available to a selected recipient.
+**Package identifier / digest:** SHA-256 digest derived from the canonical unsigned package manifest with fields identified in Section 6.2 excluded.
 
-**Capability token**: A recipient-scoped authorization value that permits a defined package or resource action.
+**Chunk:** A content-addressed transport fragment, not a mandatory RDO Object.
 
-**Package identifier**: The content-derived identity of a package.
+**RPP Resource:** A package file/chunk/bundle logical transfer unit, distinct from RNS Resource.
 
-**Manifest hash**: The digest of the canonical manifest used to identify and verify the package manifest.
+**RNS Resource:** Reticulum's existing reliable bulk-transfer primitive.
 
-**Transfer session**: The state associated with a package transfer between a publisher and recipient.
+**Recipient:** An explicitly authorized RNS Destination or authenticated holder of a recipient-bound capability.
 
-**RNS Resource**: The Reticulum Network Stack bulk-transfer primitive. It is distinct from the RPP logical Resource.
+**Offer / OfferAck / ManifestRequest / ResourcePlan / ResourceAccept / MissingChunks / TransferReceipt:** Transient control operations/messages, not mandatory independently published RDO objects.
 
-**Explicit destination**: A Reticulum destination selected by the publisher or otherwise authorized by a package policy. It is not a public package inventory.
+**Capability token:** A recipient-bound authorization value scoped to an operation, resource and possibly expiry.
 
-## 5. Protocol Layering and Independence
+**Transfer session:** Ephemeral negotiation/retry state, not an RDO object by default.
 
-### 5.1 RNS foundation
+## 5. RDO M3 Dependency and Reticulum Data Plane
 
-RPP uses RNS primitives directly:
+### 5.1 Ontology layering
 
-- **RNS Identity** provides the cryptographic identity used by a participant and its signatures.
-- **RNS Destination** identifies an addressed endpoint.
-- **RNS Link** provides a session for control exchange and negotiation.
-- **RNS Packet** carries small control messages.
-- **RNS Resource** carries manifests and bulk resource data.
-- **RNS PacketReceipt** MAY be used where a delivery receipt is useful.
+~~~text
+M2:         RPP package/file ontology   DAF     R3AKT
+                         \               |       /
+M3:                           RDO core ontology
+                                      |
+Transport:                        Reticulum RNS
+                           Links, Packets, Resources
+~~~
 
-RPP MUST NOT require another application protocol to define the meaning of these operations.
+The ontology defined in ontology/rpp.ttl specializes Object, Property and Relationship classes defined by RDO. RPP depends on RDO's canonical Destination-hash identity, per-object owner and remote-operation contract. RDO MUST remain usable without RPP.
 
-### 5.2 Relationship to RDO
+RPP control requests (publication, offers, manifest retrieval, transfer negotiation and receipts) are RPP-defined operations targeting appropriate RDO object Destinations and executing under owner authorization. The binary data plane sends signed manifests and bytes over RNS Resources and MAY use RNS Link/Packet control exchanges as a binding of those RDO operations.
 
-RDO and RPP are sibling protocols:
+### 5.2 No per-chunk distributed objects
 
-```text
-Reticulum Network Stack
-│
-├── RDO
-│   └── Distributed object semantics
-│
-└── RPP
-    └── Package/resource distribution
-```
+Chunks, bundle windows, retry state, transfer receipts and ephemeral control envelopes MUST NOT require unique RDO Destinations. RPP does not turn transport fragments into M1 ontology instances. Applications MAY publish persistent transfer-related RDO objects when needed, but this is optional.
 
-RPP MUST NOT depend on RDO. RDO MUST NOT require RPP.
+### 5.3 LXMF independence
 
-An RDO object MAY reference an RPP package, snapshot, attachment, repository, or other external resource. An RPP package MAY contain serialized RDO information, but RPP does not acquire RDO semantic requirements by doing so.
-
-### 5.3 Relationship to LXMF
-
-RPP does not depend on LXMF and MUST NOT require LXMF message semantics.
-
-An implementation MAY reuse RNS functionality from a library or project that also implements LXMF. Such reuse is an implementation choice and does not make LXMF part of the RPP protocol.
-
-LXMF MAY carry a reference to an RPP package when a separate integration chooses to do so, but LXMF is not required for RPP control or transfer.
+RPP does not use LXMF message semantics and MUST NOT depend on LXMF. It MAY be implemented using a library that also implements LXMF/RNS.
 
 ## 6. Package and Resource Model
 
-### 6.1 Immutable packages
+### 6.1 Ontology instances
 
-A package is immutable after publication. A publisher MUST NOT modify package content while retaining the same package identifier.
+An rpp:Package, rpp:Manifest or rpp:File instance is an independent addressable rdo:Object owned by exactly one twin. An instance of rpp:Contains or rpp:Supersedes is an independently addressable Relationship, and every rpp:ContentHash, rpp:MediaType or rpp:ByteLength instance is an independently addressable Property. Creating a relationship MUST NOT mutate its endpoints.
 
-A correction, update, or replacement MUST be represented as a new package with a new content-derived identifier. The new manifest MAY refer to previous package identifiers and MAY carry a sequence value.
+A Package version is immutable once published. A new published package version MUST obtain a new Package Object (and thus new RDO Destination) and a new content digest if its logical content differs. A logical File Object MAY remain stable while a new content version is referenced by a new ContentHash Property version, subject to owner policy.
 
-A recipient MAY retain multiple package versions. Retention, garbage collection, and local storage policy are outside this specification.
+### 6.2 Immutable package content identity
 
-### 6.2 Package identity
+RPP has **two separate identity domains**:
 
-The package identifier MUST be derived from the SHA-256 digest of the canonical, signature-free manifest according to the RPP manifest canonicalization rules.
+- The RDO Destination hash identifies the addressable Package, Manifest or File Object.
+- SHA-256 content/manifest hashes identify specific immutable bytes.
 
-The manifest hash MUST be verifiable independently of the transport session.
+To avoid a circular hash, the package identifier MUST be SHA-256 of deterministic CBOR encoding of the *manifest excluding key 2 (package_id) and key 7 (signature)*. After deriving the package identifier, the publisher sets key 2 and signs the deterministic CBOR manifest with only key 7 omitted. The recipient verifies both calculations and the signature. A change in package metadata or bytes requiring a different canonical manifest MUST produce a new package identifier.
 
-The working material available for this Draft 0.1 publication does not define whether the `package_id` field itself is omitted from the hash input or represented by a special value. This self-reference treatment is therefore intentionally unresolved and MUST be fixed by a future normative proposal before implementations claim wire-level interoperability for package identifiers.
+### 6.3 Resources and file descriptors
 
-A receiver MUST verify the package identifier and manifest hash before treating a package as accepted metadata.
+An RPP Resource is a transfer unit. A chunk identifier MUST be SHA-256 of its logical chunk bytes. Resource descriptors SHOULD include size, hash and required chunk information. A file descriptor SHOULD contain a path/logical name, logical uncompressed size, digest, media type and chunk ranges when used.
 
-The package identifier MUST NOT be derived from a local filename, local database key, transport path, or publisher-local storage location.
+Descriptors in a signed wire manifest are a compact transport snapshot and MUST NOT replace authoritative separately owned Property/Relationship instances when the corresponding semantic records are published through RDO.
 
-### 6.3 Resource identity
+### 6.4 Content remains opaque
 
-A chunk identifier MUST be the SHA-256 digest of the chunk bytes.
-
-A resource descriptor SHOULD include a resource identifier, resource kind, logical size, content hash, and any bundle or chunk descriptors needed to request or verify the resource.
-
-A file descriptor SHOULD include its path or logical name, logical size, content hash, media type when known, file range when applicable, and the range of chunks that carries its content.
-
-The logical content hash and logical size MUST describe the uncompressed logical content. If a transfer encoding compresses content, the manifest MUST identify that encoding and verification MUST still validate the logical content.
-
-### 6.4 References and package contents
-
-A package MAY contain arbitrary opaque content, file sets, serialized records, snapshots, or repository artifacts.
-
-RPP MUST NOT assign mission-specific meaning to paths, media types, application profiles, or application metadata.
-
-Applications MAY define profiles for package content. Such profiles MUST remain outside the RPP core semantics and MUST be identified by an extension or profile identifier.
+RPP MAY carry binaries, datasets, source archives, snapshots or serialized RDO graphs. Transfer logic MUST NOT infer domain truth from the payload. Content-specific interpretation belongs to the consuming ontology/application.
 
 ## 7. Encoding
+
+CBOR is the compact wire serialization for RPP control data and manifests. The normative M2 vocabulary is ontology/rpp.ttl. RDF/Turtle type declarations describe semantics; exchanging an RDF serialization of a File MUST NOT replace its RDO Destination identity. RPP transport manifests MAY repeat semantic information for transfer efficiency, but are not independent sources of ownership or factual truth.
+
 
 ### 7.1 CBOR control structures
 
@@ -202,6 +156,9 @@ A receiver MUST NOT silently interpret an unknown compression, encryption, or co
 
 ## 8. Cryptographic Profile
 
+RPP signatures authorize publication and verify immutable content metadata. They MUST NOT confer authority over another twin's RDO Objects. RDO controls the authority to mutate Package, File, Property and Relationship instances; RPP validates package bytes, recipients and transfer integrity.
+
+
 ### 8.1 Required algorithms
 
 The RPP Draft 0.1 cryptographic profile uses:
@@ -231,6 +188,9 @@ A recipient MUST verify resource and file digests before reporting a complete ve
 A recipient MUST NOT report a package as complete and verified when required chunks, resources, or manifest checks remain unresolved.
 
 ## 9. Package Manifest
+
+The wire manifest is a signed representation of one published rpp:Manifest and its package content metadata. Manifest key 2 (package_id) is the content-derived digest specified by Section 6.2; it is not the RDO ID of the corresponding rpp:Package. The manifest SHOULD also permit identifying the corresponding owner-controlled RDO Package/Manifest Destinations through a versioned application profile without requiring that every transfer fragment be an RDO Object.
+
 
 ### 9.1 Core manifest content
 
@@ -307,15 +267,11 @@ A receiver that does not understand a critical extension MUST reject or quaranti
 
 ## 10. Private Sharing and Discovery
 
-### 10.1 Explicit destinations
+### 10.1 Explicit Destinations
 
-A package offer MUST be addressed to an explicitly selected destination or to a destination authorized by an explicit grant.
+Publication, offers and protected-content requests MUST be bound to explicitly selected RNS recipient Destinations and to the owning RDO Package/File operation Destination. RNS path resolution is used for the RDO object; no separate HTTP/IRI directory is required.
 
-A publisher MUST NOT expose package inventory, package identifiers, manifest metadata, or recipient authorization through a public broadcast inventory.
-
-Reticulum announces MUST NOT be used for package discovery.
-
-A normal RNS announce MAY be used for endpoint or path discovery when required by the underlying Reticulum deployment, but it MUST NOT contain or act as a public package catalog.
+RPP MUST NOT publish a global package inventory through RNS announces. A normal RNS announce or path response MAY resolve an RDO Destination but MUST NOT become a semantic file listing. Recipients MUST verify authorization before accepting protected content.
 
 ### 10.2 Recipient authorization
 
@@ -343,15 +299,13 @@ The absence of a package from a local inventory MUST NOT prove that the package 
 
 ## 11. Protocol Operations
 
-### 11.1 Transport of control and bulk data
+### 11.1 Control operations and binary transfer
 
-Small control messages MUST be carried in RNS Packet payloads or an equivalent control exchange within an RNS Link.
+RPP defines domain operations over RDO Package/File/Manifest Destinations. Small operation-control messages MAY use RNS packets or an RNS Link and MUST preserve the owner authorization, request identity and status semantics specified by RDO.
 
-Manifests and bulk package resources MUST be transferable using RNS Resource operations.
+Signed manifest bytes and bulk package resources MUST be transferable through RNS Resources. RPP MUST NOT implement its own replacement fragmentation protocol.
 
-RPP MUST NOT implement a second bulk-transfer protocol in place of the RNS Resource primitive.
-
-The default transfer mode is pull: the recipient requests the manifest and resources after accepting an Offer. Push behavior MAY be added by a declared extension or package policy.
+Pull is the default: an authorized recipient requests package metadata, then any missing bytes. Offers MAY initiate the process. Transfer control records are transient and do not require their own RDO identities.
 
 ### 11.2 Transfer sequence
 
@@ -585,15 +539,9 @@ The existence of Git-native support in Reticulum does not turn RPP into a Git pr
 
 ## 17. Extensibility
 
-Extensions MAY add package metadata, content profiles, authorization mechanisms, resource kinds, transfer policies, or transport optimizations.
+RPP MAY define new M2 types as subclasses of RDO Classes, Properties and Relationships without modifying RDO M3. A versioned RPP profile MAY define additional package operations, manifest metadata, compression modes or file descriptors.
 
-Every extension MUST be identifiable and MUST declare whether it is critical.
-
-Unknown non-critical extensions MAY be ignored without changing the core package meaning.
-
-Unknown critical extensions MUST cause rejection or quarantine until understood.
-
-An extension MUST NOT use RPP core fields to introduce application-specific semantic relationships.
+An extension MUST NOT replace Reticulum Destination hashes with content digests as canonical RDO instance IDs, silently embed authoritative Property/Relationship objects, or grant nonowners permission to mutate them. Critical extensions MUST be understood before their content is accepted.
 
 ## 18. Versioning
 
@@ -614,43 +562,26 @@ A receiver MUST reject unknown critical extensions and MUST NOT silently reinter
 
 Package versions are content metadata and are distinct from RPP protocol versions.
 
-## 19. Protocol Registry Considerations
+## 19. Protocol and Ontology Registry
 
-RPP does not require an external IANA registry for Draft 0.1.
+The RPP specification repository maintains normative assignments for its M2 vocabulary (ontology/rpp.ttl), wire control operation values, manifest CBOR keys, extensions and application profiles. Every registry addition SHOULD identify semantic meaning, version, compatibility and criticality.
 
-The specification repository MAY maintain registries for:
-
-- RPP protocol and manifest versions;
-- core CBOR object types;
-- extension identifiers;
-- resource kinds;
-- capability profiles;
-- content and compression profiles.
-
-A registry entry MUST identify ownership, versioning, compatibility, and criticality behavior.
-
-The compact object assignments retained from the working design include OfferAck = `2`, ResourcePlan = `4`, TransferReceipt = `6`, and MissingChunks = `7`. Any future assignment MUST avoid collision and MUST be recorded in a normative registry update.
+A vocabulary IRI identifies an M2 term and does not become a second RDO network identity. RNS address construction remains defined by RDO.
 
 ## 20. Conformance
 
-An implementation conforms to the RPP core when it:
+An RPP Draft 0.2 implementation MUST:
 
-1. uses RNS primitives directly for RPP control and resource transfer;
-2. does not require LXMF;
-3. supports deterministic CBOR for defined control and manifest structures;
-4. supports SHA-256 package, manifest, resource, file, and chunk verification as applicable;
-5. supports Ed25519 signature verification for signed manifests;
-6. supports explicit-destination Offers;
-7. does not use Reticulum announces for package discovery;
-8. enforces recipient authorization and capability policy where required;
-9. supports signed manifest and chunk integrity verification;
-10. supports the Offer, OfferAck, ManifestRequest, resource transfer, MissingChunks, ResourcePlan, ResourceAccept, and TransferReceipt semantics;
-11. supports partial and resumable transfer;
-12. respects negotiated or policy-defined RNS Resource limits;
-13. computes transfer units with the actual link and framing overhead;
-14. distinguishes partial, failed, complete, and complete-verified states;
-15. rejects malformed, unauthorized, expired, invalid, and unknown-critical data;
-16. keeps application, mission, Git, RDO, and LXMF semantics outside the RPP core.
+1. Use the RDO M3 contract and its one-Destination/one-owner rule for every published Package, File, Manifest, Property and Relationship instance.
+2. Provide specialized M2 Package, File, Manifest, Contains, Supersedes, ContentHash, MediaType and ByteLength types.
+3. Keep semantic Property/Relationship instances independent of source and endpoint Objects.
+4. Preserve RDO File/Object IDs separately from SHA-256 package, file, manifest and chunk digests.
+5. Validate the canonical package-identifier calculation excluding keys 2 and 7, and verify signatures over the full manifest excluding key 7.
+6. Support explicit recipient authorization, private offers, manifests and integrity-checked resource transfer.
+7. Use RNS Resources for large bytes, with bounded transfer, missing-chunk recovery and resumption where retained transfer state allows.
+8. Avoid requiring new RDO Destinations for individual chunks, receipts and transfer session state.
+9. Keep application semantics, epistemic conclusions and source control logic outside the RPP transfer engine.
+10. Interoperate with a conforming RDO address-binding/wire implementation before claiming end-to-end RPP interoperability.
 
 ## 21. References
 
@@ -658,4 +589,5 @@ An implementation conforms to the RPP core when it:
 - RFC 8174, “Ambiguity of Uppercase vs Lowercase in RFC 2119 Key Words”.
 - Reticulum Network Stack documentation: https://reticulum.network/
 - Reticulum project repository: https://github.com/markqvist/Reticulum
-- Reticulum Distributed Objects: https://github.com/FreeTAKTeam/rdo-spec
+- Reticulum Distributed Objects (RDO M3): https://github.com/FreeTAKTeam/ReticulumDistributedObject
+- RPP M2 vocabulary: ontology/rpp.ttl in this repository.
