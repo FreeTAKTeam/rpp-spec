@@ -1,14 +1,18 @@
 # Reticulum Package Protocol (RPP)
 
-Reticulum Package Protocol defines generic, efficient distribution of packages and external resources over Reticulum Network Stack primitives. It is intended for private, explicitly addressed sharing over constrained or intermittent links and does not define application or mission semantics.
+**Status: Draft 0.2 — M2 ontology on top of RDO.**
 
-Status: Draft, version 0.1.
+RPP defines the semantic model for published Packages, Files, Manifests, content Properties and package Relationships using the [RDO distributed M3](https://github.com/FreeTAKTeam/ReticulumDistributedObject).
 
-Read the [normative specification](SPECIFICATION.md). This repository contains the protocol specification, not a particular implementation, crate, package, or runtime library.
+- **Semantic control plane:** Each Package, File, Manifest, Property and Relationship instance is a separately addressable RDO object with a Reticulum Destination and one owning twin.
+- **Binary data plane:** Signed manifests, file bytes and chunk bundles transfer using Reticulum Resources, with bounded transfers, verification and resumption.
+- **Content identity:** SHA-256 manifests/chunks identify immutable bytes, not the RDO Destination of the File or Package object.
+- **Operations:** Offers, requests, negotiation and receipts are RPP-domain operations over RDO/RNS; transport chunks and session metadata need no independent object Destination.
 
-Protocol versions use semantic versioning where practical. Git tags identify published specification versions; tagged specifications are immutable. Incompatible wire-level changes require a major version, compatible additions require a minor version, and editorial corrections may use a patch version. Implementations should declare the RPP versions they support.
+Read the [normative specification](SPECIFICATION.md) and the [RPP M2 Turtle vocabulary](ontology/rpp.ttl).
 
-Proposed changes are documented through the process described in [proposals/](proposals/).
+RPP depends on RDO's identity, ontology and owner-operation rules. RDO does **not** depend on RPP; neither requires LXMF messaging.
 
-RPP and [RDO](https://github.com/FreeTAKTeam/rdo-spec) are sibling protocols. RPP does not depend on RDO; RDO MAY reference RPP for large external resources.
+This repository contains draft specifications and a vocabulary, not a production implementation. End-to-end interoperability still requires a tested RDO address binding and RPP compact wire profile. The prior Draft 0.1 sibling-protocol model is superseded.
 
+See [proposals/](proposals/) for the proposal process.
