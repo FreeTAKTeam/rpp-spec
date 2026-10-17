@@ -7,47 +7,47 @@
 # Each instance (Package, File, Manifest, Property, Relationship) has
 # its own canonical Reticulum Destination hash, type, owner and version.
 
-rpp:Package a rdfs:Class ;
+rpp:Package a rdfs:Class, rdo:Class ;
     rdfs:subClassOf rdo:Object ;
     rdfs:label "Package"@en ;
     rdfs:comment "An independently addressed, immutable published package version."@en .
 
-rpp:File a rdfs:Class ;
+rpp:File a rdfs:Class, rdo:Class ;
     rdfs:subClassOf rdo:Object ;
     rdfs:label "File"@en ;
     rdfs:comment "A logical file object whose content version may change without changing its RDO ID."@en .
 
-rpp:Manifest a rdfs:Class ;
+rpp:Manifest a rdfs:Class, rdo:Class ;
     rdfs:subClassOf rdo:Object ;
     rdfs:label "Manifest"@en ;
     rdfs:comment "An independently addressed manifest record with a verifiable signed wire representation."@en .
 
-rpp:Contains a rdfs:Class ;
+rpp:Contains a rdfs:Class, rdo:Class ;
     rdfs:subClassOf rdo:Relationship ;
     rdfs:label "Contains"@en ;
     rdfs:comment "An independent relation from a Package to one of its File objects."@en .
 
-rpp:Supersedes a rdfs:Class ;
+rpp:Supersedes a rdfs:Class, rdo:Class ;
     rdfs:subClassOf rdo:Relationship ;
     rdfs:label "Supersedes"@en ;
     rdfs:comment "An independent relation between package/file versions or publications."@en .
 
-rpp:ContentHash a rdfs:Class ;
+rpp:ContentHash a rdfs:Class, rdo:Class ;
     rdfs:subClassOf rdo:Property ;
     rdfs:label "Content hash"@en ;
     rdfs:comment "A separately owned Property specifying a SHA-256 digest of logical content."@en .
 
-rpp:MediaType a rdfs:Class ;
+rpp:MediaType a rdfs:Class, rdo:Class ;
     rdfs:subClassOf rdo:Property ;
     rdfs:label "Media type"@en ;
     rdfs:comment "A separately owned Property specifying a media type for its source File."@en .
 
-rpp:ByteLength a rdfs:Class ;
+rpp:ByteLength a rdfs:Class, rdo:Class ;
     rdfs:subClassOf rdo:Property ;
     rdfs:label "Byte length"@en ;
     rdfs:comment "A separately owned Property specifying uncompressed logical content size."@en .
 
-rpp:PackageDigest a rdfs:Class ;
+rpp:PackageDigest a rdfs:Class, rdo:Class ;
     rdfs:subClassOf rdo:Property ;
     rdfs:label "Package digest"@en ;
     rdfs:comment "A content-derived manifest digest; not the RDO ID of its source Package."@en .
