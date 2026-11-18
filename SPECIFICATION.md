@@ -3,12 +3,12 @@
 Protocol: Reticulum Package Protocol
 Acronym: RPP
 Status: Draft
-Version: 0.2-draft
+Version: 0.3-draft
 Transport: Reticulum Network Stack
 
 ## 1. Status of This Document
 
-This is the normative **RPP Draft 0.2**, superseding untagged Draft 0.1. RPP is now an M2 ontology specializing the RDO distributed M3, with an RNS Resource-based binary transfer mechanism. There is no claim of compatibility with a released RPP wire protocol.
+This is the normative **RPP Draft 0.3**, superseding Draft 0.2. It adopts [RPP-0001](proposals/RPP-0001-manifest-reuse.md) for complete chunk manifests, verified manifest reuse and receiver-driven recovery. A Draft 0.2 manifest that omits the chunk inventory cannot be used as a Draft 0.3 manifest.
 
 Capitalized MUST, MUST NOT, SHOULD, SHOULD NOT and MAY follow RFC 2119 and RFC 8174. Interoperability requires the final RDO/RPP wire profile and verified test vectors.
 
@@ -54,6 +54,8 @@ RPP does not define a general M3 ontology, factual truth resolution, message tra
 **RDO ID:** An RPP semantic instance's canonical Reticulum Destination hash; never its file or package digest.
 
 **Package identifier / digest:** SHA-256 digest derived from the canonical unsigned package manifest with fields identified in Section 6.2 excluded.
+
+**Manifest hash (`manifest_hash`):** The 32-byte SHA-256 digest of the exact signed deterministic CBOR manifest bytes, including keys 2 and 7, before any transport compression or RNS framing. The publisher computes this external reference after signing. It is the cache key used by offers, chunk requests and bundle plans.
 
 **Chunk:** A content-addressed transport fragment, not a mandatory RDO Object.
 
@@ -161,7 +163,7 @@ RPP signatures authorize publication and verify immutable content metadata. They
 
 ### 8.1 Required algorithms
 
-The RPP Draft 0.1 cryptographic profile uses:
+The RPP Draft 0.3 cryptographic profile uses:
 
 - SHA-256 for package, manifest, resource, file, and chunk digests where a digest is required;
 - Ed25519 for publisher and authorization signatures where a signature is required;
@@ -214,14 +216,14 @@ The following fields are defined by the RPP manifest model. Integer keys shown b
 | 14 | previous_package_ids | MAY identify superseded or related packages |
 | 15 | sequence | MAY identify a publisher sequence |
 | 20 | total_uncompressed_size | MUST identify logical uncompressed size |
-| 24 | chunk_count | MUST identify the declared chunk count when chunks are used |
+| 24 | chunk_count | MUST give the number of entries in key 32 |
 | 25 | package_content_type | MAY identify a content profile |
 | 26 | compression_algorithm | MAY identify compression |
 | 27 | encryption_profile | MAY identify an encryption profile |
 | 28 | ledger_hash | MAY identify an external package ledger |
 | 29 | revocation_hash | MAY identify revocation information |
 | 31 | files | MAY describe files or logical members |
-| 32 | chunks | MUST describe chunks when direct chunk descriptors are used |
+| 32 | chunks | MUST enumerate every logical chunk in package order as specified in Section 9.3 |
 | 33 | package_name | MAY provide a display name |
 | 34 | package_version | MAY provide an application or content version |
 | 35 | application_profile | MAY identify an external application profile |
@@ -246,18 +248,18 @@ A receiver MUST treat file paths as package content, not as permission to write 
 
 ### 9.3 Chunk descriptors
 
-A chunk descriptor MAY use the following compact fields:
+The signed manifest MUST enumerate every chunk required to reconstruct the package. Key 32 is an array in package order. Each descriptor MUST include the package-wide index, logical byte length and SHA-256 digest shown below.
 
 | Key | Field |
 |---:|---|
-| 22 | chunk identifier |
-| 23 | chunk index |
-| 20 | chunk size |
-| 21 | chunk hash |
-| 44 | offset |
-| 45 | length |
+| 23 | Required. Unsigned zero-based index equal to the descriptor's position in the array. |
+| 20 | Required. Logical uncompressed byte length as a positive unsigned integer. |
+| 21 | Required. SHA-256 digest of the logical chunk bytes as a 32-byte CBOR byte string. |
+| 22 | Optional chunk identifier. If present, it MUST equal key 21. |
+| 44 | Optional byte offset in the logical package stream. If present, it MUST equal the sum of all preceding chunk lengths. |
+| 45 | Optional logical byte length. If present, it MUST equal key 20. |
 
-Chunk indexes MUST be unambiguous within the applicable resource or package. A receiver MUST reject duplicate indexes with conflicting content.
+A receiver MUST verify that the array length equals `chunk_count`, that indexes are consecutive from zero, and that chunk lengths sum to `total_uncompressed_size`. A package containing zero payload bytes MUST use an empty array and count zero. Equal digests at different indexes are valid when the same bytes occur more than once. The signed chunk boundaries apply for the lifetime of the manifest.
 
 ### 9.4 Extensions
 
@@ -309,18 +311,11 @@ Pull is the default: an authorized recipient requests package metadata, then any
 
 ### 11.2 Transfer sequence
 
-A conforming pull transfer follows this semantic sequence:
-
-1. **Offer**: The publisher sends an addressed Offer identifying the package and the intended recipient scope.
-2. **OfferAck**: The recipient accepts, rejects, defers, reports that it already has the package, or requests the next transfer information.
-3. **ManifestRequest**: The recipient requests the manifest, with any required capability.
-4. **Manifest Resource**: The publisher transfers the signed manifest using an RNS Resource.
-5. **Manifest verification**: The recipient verifies CBOR, signature, package identity, expiry, authorization, and manifest consistency.
-6. **MissingChunks**: The recipient identifies missing or invalid chunks after manifest verification.
-7. **ResourcePlan**: The publisher proposes one or more resource or chunk bundles that fit the negotiated transfer limits.
-8. **ResourceAccept**: The recipient accepts, rejects, or modifies the proposed resource transfer within its advertised limits.
-9. **Chunk-bundle Resource**: The publisher transfers the accepted bundle through an RNS Resource.
-10. **TransferReceipt**: The recipient reports failed, partial, complete, or complete-verified status.
+1. A publisher MAY send an addressed **Offer** naming the manifest hash. An authorized receiver that already knows the reference MAY start a pull directly.
+2. On a cache miss, the receiver sends **ManifestRequest**. After authorization the publisher sends the signed manifest as an RNS Resource. The receiver MUST check the expected hash when supplied, verify the signature and package ID, validate the chunk inventory, and apply expiry and authorization policy before caching the verified manifest under its hash.
+3. On a verified cache hit, including after reconnect, the receiver MUST skip manifest retrieval. It checks current policy and compares its available verified chunks with the cached inventory. If it needs data, it sends **MissingChunks** for the missing or invalid indexes. This request also acknowledges the manifest. A separate **OfferAck** is optional.
+4. After authorizing the request, the publisher sends a **ResourcePlan** for requested chunks within the negotiated limits. The receiver replies with **ResourceAccept** or asks for a different plan. The publisher sends each accepted bundle as an RNS Resource. The receiver verifies the chunks and repeats the request as needed.
+5. If all chunks are already available, the receiver skips bundle negotiation. Once assembly, integrity and authorization checks succeed, it sends a **TransferReceipt** with status `complete_verified`. Section 11.9 defines the other outcomes.
 
 Messages MAY be combined when the same semantics and authorization checks are preserved.
 
@@ -328,7 +323,7 @@ Messages MAY be combined when the same semantics and authorization checks are pr
 
 An Offer MUST identify:
 
-- the package identifier or manifest identifier;
+- the manifest hash, so the receiver can check its cache before requesting bytes;
 - the publisher destination or signing identity;
 - the intended recipient or recipient scope;
 - any expiry, capability, or policy needed before the next request;
@@ -349,7 +344,7 @@ It MUST identify the package and recipient destination and MUST report one of th
 - request_manifest;
 - request_plan.
 
-An OfferAck MAY include missing chunks, a maximum acceptable RNS Resource size, and a transfer-window limit.
+An OfferAck with status `request_manifest` MAY serve as a ManifestRequest if it meets Section 11.5. An OfferAck MAY carry the MissingChunks request and its limits if it satisfies Section 11.8. A bare acceptance or `request_plan` status does not authorize sending unrequested chunks.
 
 The working compact object model assigns the OfferAck object type value `2` and uses fields for object type, RPP version, package identifier, manifest hash, recipient destination, timestamp, status, missing chunks, maximum resource size, and transfer window. A transport binding MUST preserve these semantics if it uses the compact object registry.
 
@@ -358,6 +353,8 @@ The working compact object model assigns the OfferAck object type value `2` and 
 A ManifestRequest MUST identify the package or manifest requested and MUST include a capability token when the package policy requires one.
 
 A publisher MUST verify destination authorization before serving the manifest.
+
+The publisher MUST send the signed manifest only in response to a receiver's manifest request, including a combined request. A receiver whose verified copy was lost, evicted or found corrupt MAY request it again. Reconnection alone MUST NOT trigger a manifest resend.
 
 A recipient MUST be able to request a manifest without requesting every package resource.
 
@@ -377,12 +374,14 @@ The working compact object model assigns the ResourcePlan object type value `4` 
 - optional bundle identifier;
 - optional bundle index;
 - optional bundle count;
-- optional chunk indexes;
+- ordered chunk indexes for a chunk bundle;
 - optional resource hash;
 - optional priority;
 - optional time-to-live.
 
-A ResourcePlan MUST not exceed the negotiated resource size or transfer policy.
+A chunk-bundle plan MUST identify the requested manifest by hash and list only requested indexes, once each, in payload order. The plan MUST respect the negotiated resource size and transfer policy. The transport binding MUST associate each incoming Resource unambiguously with its accepted plan, including when multiple bundles are outstanding.
+
+The logical bundle payload is the concatenation of the listed chunks in plan order. The manifest hash appears once in the plan and individual chunks carry no manifest or index header. After any negotiated decompression, the receiver MUST split the payload using the signed lengths, reject a length mismatch or an unassociated bundle, and verify each chunk digest before marking that index available.
 
 ### 11.7 ResourceAccept
 
@@ -398,7 +397,9 @@ MissingChunks is sent after the recipient has verified the manifest and determin
 
 The working compact object model assigns the MissingChunks object type value `7` and defines fields for object type, RPP version, package identifier, manifest hash, capability token, missing chunk indexes, maximum resource size, and transfer window.
 
-The recipient SHOULD request missing chunks by index rather than requesting a complete package when it already holds valid chunks.
+The receiver MUST identify the exact signed manifest by hash and request only chunks that are absent or fail verification. It MAY request a bounded subset at a time. In the missing-index list, a CBOR unsigned integer selects one index and a two-element array of unsigned integers selects the inclusive range from first to last. Selections MUST be within the manifest inventory, sorted by starting index and free of overlaps or reversed ranges. For a nonempty package with no local chunks, the receiver can select the entire inventory with a single range.
+
+The publisher MUST validate the selection and current recipient authorization before serving bytes. It MUST send only chunks selected by the receiver and accepted under Section 11.7. An empty selection requests no chunks.
 
 ### 11.9 TransferReceipt
 
@@ -422,7 +423,7 @@ A recipient MUST use complete_verified only after all required integrity and aut
 
 The usable transfer unit MUST be calculated for the actual resource and link conditions.
 
-A sender MUST account for the actual link MTU and the Reticulum and interface framing overhead, including IFAC overhead when applicable. Chunk or bundle size MUST NOT be selected solely from a compile-time constant that ignores the active link.
+A sender MUST account for the actual link MTU and the Reticulum and interface framing overhead, including IFAC overhead when applicable. The sender adapts the number of published chunks per bundle to the active link. If a single requested chunk exceeds the negotiated limit, the peers must agree on a sufficient limit or defer that chunk.
 
 A receiver MAY advertise a maximum acceptable RNS Resource size. A sender MUST honor the negotiated or policy-defined maximum.
 
@@ -438,7 +439,7 @@ An implementation MAY use different window algorithms, provided that it preserve
 
 A transfer MUST be resumable when the publisher still has the package and the recipient retains sufficient transfer state.
 
-A recipient MUST be able to identify missing or invalid chunks without restarting a complete package transfer.
+A recipient retaining a verified manifest MUST be able to resume directly with MissingChunks on a new authorized link. It MUST derive its request from the verified bytes it still holds. A sender serving the package MUST process a resumed request under the same authorization and transfer limits as a new request, without requiring the previous session, an OfferAck or another transfer of the manifest. If the recipient has lost its manifest it requests a fresh copy and can verify retained chunks against it.
 
 Active incoming parts MUST NOT be counted as timeout failures merely because the transfer is still progressing.
 
@@ -570,7 +571,7 @@ A vocabulary IRI identifies an M2 term and does not become a second RDO network 
 
 ## 20. Conformance
 
-An RPP Draft 0.2 implementation MUST:
+An RPP Draft 0.3 implementation MUST:
 
 1. Use the RDO M3 contract and its one-Destination/one-owner rule for every published Package, File, Manifest, Property and Relationship instance.
 2. Provide specialized M2 Package, File, Manifest, Contains, Supersedes, ContentHash, MediaType and ByteLength types.
@@ -578,7 +579,7 @@ An RPP Draft 0.2 implementation MUST:
 4. Preserve RDO File/Object IDs separately from SHA-256 package, file, manifest and chunk digests.
 5. Validate the canonical package-identifier calculation excluding keys 2 and 7, and verify signatures over the full manifest excluding key 7.
 6. Support explicit recipient authorization, private offers, manifests and integrity-checked resource transfer.
-7. Use RNS Resources for large bytes, with bounded transfer, missing-chunk recovery and resumption where retained transfer state allows.
+7. Use RNS Resources for large bytes. Publish and validate a complete signed chunk inventory. Support cache-miss manifest retrieval, direct resume by verified manifest hash, and bounded bundles containing only receiver-requested chunks.
 8. Avoid requiring new RDO Destinations for individual chunks, receipts and transfer session state.
 9. Keep application semantics, epistemic conclusions and source control logic outside the RPP transfer engine.
 10. Interoperate with a conforming RDO address-binding/wire implementation before claiming end-to-end RPP interoperability.
@@ -591,3 +592,28 @@ An RPP Draft 0.2 implementation MUST:
 - Reticulum project repository: https://github.com/markqvist/Reticulum
 - Reticulum Distributed Objects (RDO M3): https://github.com/FreeTAKTeam/ReticulumDistributedObject
 - RPP M2 vocabulary: ontology/rpp.ttl in this repository.
+
+## Appendix A. Direct LXMF delivery and RPP (informative)
+
+This comparison covers a standard direct LXMF message large enough to travel as an RNS Resource. Both protocols use Reticulum for packet sequencing, retransmission and reassembly on an active Link. The difference matters when that Link ends and a receiver already holds some of the content. [Reticulum Resources](https://reticulum.network/manual/understanding.html#resources) · [LXMF reference implementation](https://github.com/markqvist/LXMF/blob/7dfc8353541f46e1c5aceab4849136dc28bb7855/LXMF/LXMessage.py)
+
+| Aspect | Direct LXMF over an RNS Resource | RPP Draft 0.3 |
+|---|---|---|
+| Unit of delivery | One packed LXMF message, including any attached data. | One immutable package, transferred through a signed manifest and one or more requested bundles when bytes are needed. |
+| First contact | The sender offers the packed message as a Resource. | An Offer identifies the manifest by hash. The receiver requests the signed manifest on a cache miss. |
+| Selection of bytes | The sender selects the message. Reticulum coordinates delivery of its parts. | The receiver compares its verified chunks with the complete inventory and requests missing indexes or ranges. |
+| Bundle metadata | The Resource carries the serialized message. | One accepted plan identifies the manifest and ordered chunk indexes. The payload carries the corresponding bytes. |
+| Packet loss on an active Link | RNS handles retransmission and reassembly. | RNS provides the same recovery for the manifest or bundle in transit. |
+| Reconnect | After a retryable Resource failure, the reference implementation queues the message for another delivery attempt. Direct LXMF defines no request for selected attachment chunks. | The receiver retains verified chunks and requests the gaps against its cached manifest. New bundles may be smaller. |
+| Completion | The sender marks a direct message delivered when its Resource completes successfully. | The receiver reports `complete_verified` after package integrity and authorization checks succeed. |
+| Airtime | A one-off message avoids a separate package inventory and negotiation. | The initial transfer pays for the complete inventory. A resumed pull with a verified cached copy sends zero manifest bytes and skips previously verified chunks. |
+
+### Example of a 100-chunk package
+
+A publisher offers a package with manifest hash `H`. The receiver requests the manifest once, verifies it, and caches its 100 descriptors, indexed 0 through 99. At reconnect, it holds 98 verified chunks. Only indexes 17 and 63 are missing.
+
+1. The receiver sends `MissingChunks(H, [17, 63])` on the new authorized link. This notation abbreviates the control fields. The two integers select two individual indexes.
+2. The publisher authorizes the request and proposes one bundle for `H` with ordered indexes `[17, 63]`. The receiver accepts. The bundle carries the bytes of chunk 17 followed by the bytes of chunk 63.
+3. The receiver uses the cached lengths to split the bundle, verifies both digests, assembles the package, and sends `TransferReceipt(H, complete_verified)` after the remaining checks succeed.
+
+The resumed exchange transmits two chunks of payload and zero manifest bytes, plus control and RNS overhead. If chunk 17 was verified and retained before another interruption, the next request is `MissingChunks(H, [63])`.
