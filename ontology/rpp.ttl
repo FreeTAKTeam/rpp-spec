@@ -2,7 +2,7 @@
 @prefix rdo:  <https://freetakteam.github.io/rdo/ontology#> .
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
 
-# RPP M2 vocabulary, Draft 0.2, defined by the RDO M3.
+# RPP M2 vocabulary, Draft 0.3, defined by the RDO M3.
 # The terms below are semantic type names, not RDO instance addresses.
 # Each instance (Package, File, Manifest, Property, Relationship) has
 # its own canonical Reticulum Destination hash, type, owner and version.
