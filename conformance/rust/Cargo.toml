@@ -1,0 +1,12 @@
+[package]
+name = "rpp-rc1-vectors"
+version = "0.3.0-rc.1"
+edition = "2021"
+publish = false
+
+[dependencies]
+ciborium = "0.2.2"
+ed25519-dalek = "2.2"
+hex = "0.4"
+serde_json = "1"
+sha2 = "0.10"

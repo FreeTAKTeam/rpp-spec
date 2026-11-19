@@ -1,6 +1,8 @@
 # Changelog
 
-## 0.3 RC1 — design candidate
+## 0.3.0-rc.1 — 2026-11-19
+
+- Published the versioned wire specification, its [pinned RDO owner binding](https://github.com/FreeTAKTeam/ReticulumDistributedObject/blob/948e61d43593bbfc97449692fc13176e25108673/profiles/owner-v1.md), and standalone Python and Rust [fixture checks](README.md#verify-the-release-vectors).
 
 - Assigned the seven commands, signed publication references, manifest grammar and Resource association in the [RC1 profile](profiles/0.3-rc1.md).
 - Added deterministic file, update, bundle, resume and rejection [vectors](vectors/rc1.json) for independent implementations.

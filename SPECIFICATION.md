@@ -2,8 +2,8 @@
 
 Protocol: Reticulum Package Protocol
 Acronym: RPP
-Status: Release candidate for review
-Version: 0.3-rc.1
+Status: Specification release candidate 1
+Version: 0.3.0-rc.1
 Transport: Reticulum Network Stack
 
 ## 1. Status of This Document
