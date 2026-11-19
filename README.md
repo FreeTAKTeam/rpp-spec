@@ -17,4 +17,15 @@ RPP depends on RDO's identity, ontology and owner-operation rules. RDO does **no
 
 Implementers should start with the [RC1 wire profile and Fabric acceptance gates](profiles/0.3-rc1.md) and the [machine-readable conformance vectors](vectors/rc1.json). End-to-end qualification requires a live Python/Rust RDO owner lookup and bounded RNS Resource transfer.
 
+## Verify the release vectors
+
+The specification tag is `v0.3.0-rc.1`. The wire version is integer `3` on the Link request path `/rpp/3`. From the root of the tagged source or extracted release bundle, run:
+
+```sh
+uv run conformance/verify.py
+cargo run --locked --manifest-path conformance/rust/Cargo.toml
+```
+
+Both consumers encode the diagnostic values in `vectors/rc1.json` and recompute package and signed-manifest digests. Python also checks file and chunk integrity, all rejection cases, and the resume scenario. Rust independently regenerates the Ed25519 manifest signatures. The inputs are public test keys and local bytes. Network interoperability has separate [RDO and RNS acceptance gates](profiles/0.3-rc1.md#fabric-and-downstream-acceptance).
+
 See [proposals/](proposals/) for the proposal process.
