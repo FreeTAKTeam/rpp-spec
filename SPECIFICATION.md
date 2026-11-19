@@ -2,15 +2,15 @@
 
 Protocol: Reticulum Package Protocol
 Acronym: RPP
-Status: Draft
-Version: 0.3-draft
+Status: Release candidate for review
+Version: 0.3-rc.1
 Transport: Reticulum Network Stack
 
 ## 1. Status of This Document
 
-This is the normative **RPP Draft 0.3**, superseding Draft 0.2. It adopts [RPP-0001](proposals/RPP-0001-manifest-reuse.md) for complete chunk manifests, verified manifest reuse and receiver-driven recovery. A Draft 0.2 manifest that omits the chunk inventory cannot be used as a Draft 0.3 manifest.
+The **RPP 0.3 RC1** candidate combines this semantic specification with the normative [RC1 wire profile](profiles/0.3-rc1.md) and [conformance vectors](vectors/rc1.json). For RC1 the profile fixes the concrete field types, required subsets, limits and exchange options described more generally below. It supersedes Draft 0.2. It adopts [RPP-0001](proposals/RPP-0001-manifest-reuse.md) for complete chunk manifests, verified manifest reuse and receiver-driven recovery. A Draft 0.2 manifest that omits the chunk inventory cannot be used as a Draft 0.3 manifest.
 
-Capitalized MUST, MUST NOT, SHOULD, SHOULD NOT and MAY follow RFC 2119 and RFC 8174. Interoperability requires the final RDO/RPP wire profile and verified test vectors.
+Capitalized MUST, MUST NOT, SHOULD, SHOULD NOT and MAY follow RFC 2119 and RFC 8174. Network interoperability requires the RDO owner-binding and RNS Resource qualification gates in the RC1 profile.
 
 ## 2. Purpose and Scope
 
