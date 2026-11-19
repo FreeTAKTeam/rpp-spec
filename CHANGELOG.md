@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3 RC1 — design candidate
+
+- Assigned the seven commands, signed publication references, manifest grammar and Resource association in the [RC1 profile](profiles/0.3-rc1.md).
+- Added deterministic file, update, bundle, resume and rejection [vectors](vectors/rc1.json) for independent implementations.
+
 ## 0.3 - Draft
 
 - Adopted [RPP-0001](proposals/RPP-0001-manifest-reuse.md). Every signed manifest enumerates the index, logical length and SHA-256 digest of every chunk.

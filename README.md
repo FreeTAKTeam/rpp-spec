@@ -1,6 +1,6 @@
 # Reticulum Package Protocol (RPP)
 
-**RPP Draft 0.3** defines an M2 ontology on top of RDO.
+**RPP 0.3 RC1** defines an M2 ontology on top of RDO.
 
 RPP defines the semantic model for published Packages, Files, Manifests, content Properties and package Relationships using the [RDO distributed M3](https://github.com/FreeTAKTeam/ReticulumDistributedObject).
 
@@ -15,6 +15,6 @@ The [direct LXMF comparison and 100-chunk example](SPECIFICATION.md#appendix-a-d
 
 RPP depends on RDO's identity, ontology and owner-operation rules. RDO does **not** depend on RPP; neither requires LXMF messaging.
 
-This repository contains draft specifications and a vocabulary, not a production implementation. End-to-end interoperability still requires a tested RDO address binding and RPP compact wire profile. The prior Draft 0.1 sibling-protocol model is superseded.
+Implementers should start with the [RC1 wire profile and Fabric acceptance gates](profiles/0.3-rc1.md) and the [machine-readable conformance vectors](vectors/rc1.json). End-to-end qualification requires a live Python/Rust RDO owner lookup and bounded RNS Resource transfer.
 
 See [proposals/](proposals/) for the proposal process.
